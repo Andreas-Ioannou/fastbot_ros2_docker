@@ -1,0 +1,29 @@
+version: "3.3"
+services:
+  fastbot-ros2-real:
+    build:
+      context: .
+      dockerfile: Dockerfile.real
+    container_name: fastbot-ros2-real
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Add USB/device mounts if needed for camera/laser/motors
+
+  fastbot-ros2-slam-real:
+    build:
+      context: .
+      dockerfile: Dockerfile.slam
+    container_name: fastbot-ros2-slam-real
+    network_mode: host
+    depends_on:
+      - fastbot-ros2-real
+    restart: unless-stopped
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
