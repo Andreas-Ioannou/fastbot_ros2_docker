@@ -16,7 +16,7 @@ docker-compose up
 
  #To connect to the robot press the connect button
 
-<Real Task-2>
+# Real Task-2:
 #From the fastbot robot
 
 1. Clone the fastbot_bringup repo:
