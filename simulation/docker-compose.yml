@@ -1,26 +1,63 @@
 version: "3.3"
 services:
   fastbot-ros2-gazebo:
-    image: andreasros/andreasros-cp22:fastbot-ros2-gazebo
+    build:
+      context: .
+      dockerfile: Dockerfile.fastbot-ros2-gazebo
     container_name: fastbot-ros2-gazebo
+    network_mode: bridge
     environment:
-      - DISPLAY=${DISPLAY}
-      - GAZEBO_MODEL_PATH=/ros2_ws/install/fastbot_description/share:/ros2_ws/src/fastbot
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - ROS_DOMAIN_ID=22
+      - FASTRTPS_DEFAULT_PROFILES_FILE=
+      #- GAZEBO_MODEL_DATABASE_URI=
+      - AMENT_PREFIX_PATH=/opt/ros/humble:/colcon/install
+      - GAZEBO_PLUGIN_PATH=/opt/ros/humble/lib
+      - GAZEBO_MODEL_PATH=/colcon/install/fastbot_description/share/fastbot_description:/colcon/install/fastbot_gazebo/share/fastbot_gazebo
+      - GAZEBO_RESOURCE_PATH=/colcon/install/fastbot_description/share/fastbot_description:/colcon/install/fastbot_gazebo/share/fastbot_gazebo
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+      # If you have NVIDIA and the old runtime is installed, uncomment:
+      # - NVIDIA_VISIBLE_DEVICES=all
+      # - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-
+      - ../../../src:/ws/src:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  
+    command: bash -lc "ros2 launch fastbot_gazebo one_fastbot_room.launch.py"
+    # For NVIDIA on older setups, you may also need:
+    # runtime: nvidia
 
   fastbot-ros2-slam:
-    image: andreasros/andreasros-cp22:fastbot-ros2-slam
+    build:
+      context: .
+      dockerfile: Dockerfile.fastbot-ros2-slam
     container_name: fastbot-ros2-slam
     depends_on:
       - fastbot-ros2-gazebo
+    network_mode: bridge
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - ROS_DOMAIN_ID=22
+      - DISPLAY
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - ../../../src:/ws/src:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
 
   fastbot-ros2-webapp:
-    image: andreasros/andreasros-cp22:fastbot-ros2-webapp
+    build:
+      context: .
+      dockerfile: Dockerfile.fastbot-ros2-webapp
     container_name: fastbot-ros2-webapp
     depends_on:
       - fastbot-ros2-gazebo
-      - fastbot-ros2-slam
+    network_mode: bridge
+    environment:
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - ROS_DOMAIN_ID=22
+    volumes:
+      - ../../../src:/ws/src:rw
+      - ./webapp:/site:ro               # serve simulation/webapp at /site
     ports:
-      - "7000:7000"
+      - "7000:7000"                     # python http.server
+      - "9090:9090"                     # rosbridge

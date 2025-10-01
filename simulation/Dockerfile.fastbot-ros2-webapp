@@ -1,0 +1,14 @@
+FROM ros:humble-ros-base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-rosbridge-server \
+    ros-humble-rmw-cyclonedds-cpp \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
+WORKDIR /ws
+COPY entrypoint.bash /entrypoint.bash
+ENTRYPOINT ["/entrypoint.bash"]
+
+CMD ["bash","-lc","(ros2 launch rosbridge_server rosbridge_websocket_launch.xml address:=0.0.0.0 port:=9090 &) && python3 -m http.server 7000 --directory /site"]

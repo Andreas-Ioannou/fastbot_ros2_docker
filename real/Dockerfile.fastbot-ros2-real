@@ -1,0 +1,34 @@
+FROM ros:humble-ros-base
+
+# OS deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3-colcon-common-extensions python3-vcstool \
+    udev \
+    ros-humble-rmw-cyclonedds-cpp \
+    ros-humble-image-transport ros-humble-compressed-image-transport \
+    ros-humble-diagnostic-updater \
+    && rm -rf /var/lib/apt/lists/*
+
+# If your lidar/camera need extra vendor libs, add them here.
+# Example (uncomment if you need it):
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     v4l-utils \
+#     && rm -rf /var/lib/apt/lists/*
+
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV AMENT_PREFIX_PATH=/opt/ros/humble
+
+# Workspace mount point
+WORKDIR /ws
+# Colcon install lives outside the bind mount (faster, persisted by volume)
+ENV COLCON_DEFAULTS_FILE=
+ENV ROS_LOG_DIR=/root/.ros/log
+
+# Entrypoint
+COPY entrypoint.bash /entrypoint.bash
+ENTRYPOINT ["/entrypoint.bash"]
+
+# --------- DEFAULT LAUNCH (ADJUST TO YOUR BRINGUP) ----------
+# Example: start drivers (camera, lidar, motors)
+# Replace with the exact launch in your repo, e.g. fastbot_bringup bringup.launch.xml
+CMD ["bash","-lc","ros2 launch fastbot_bringup bringup.launch.xml"]

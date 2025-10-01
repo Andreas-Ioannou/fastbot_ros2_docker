@@ -3,27 +3,58 @@ services:
   fastbot-ros2-real:
     build:
       context: .
-      dockerfile: Dockerfile.real
+      dockerfile: Dockerfile.fastbot-ros2-real
     container_name: fastbot-ros2-real
+    # Real sensors are on USB/I2C/SPI; host network is simplest for ROS 2 discovery
     network_mode: host
-    privileged: true
     restart: unless-stopped
     environment:
-      - DISPLAY=${DISPLAY}
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - ROS_DOMAIN_ID=22          # pick a domain for your robot
+      - CYCLONEDDS_URI=           # use default
+      - AMENT_PREFIX_PATH=/opt/ros/humble:/colcon/install
+      - ROS_LOG_DIR=/root/.ros/log
+    # Mount your workspace *read-only* (code) and a build cache volume for /colcon
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      # Add USB/device mounts if needed for camera/laser/motors
+      - ../../../:/ws:ro
+      - colcon_install:/colcon
+      - /etc/localtime:/etc/localtime:ro
+    # Devices – adjust to your robot (common ones shown)
+    privileged: true
+    devices:
+      - /dev/ttyACM0:/dev/ttyUSB0  # Arduino/microcontroller (motors)
+      - /dev/ttyUSB0:/dev/lslidar   # LiDAR (typical)
+      - /dev/video0:/dev/video0     # Camera (v4l2)
+      #- /dev/bus/usb:/dev/bus/usb   # USB buses (safe when privileged)
+    group_add:
+      - "44"     # video
+      - "20"     # dialout (serial)
+    # Optionally pin a specific command here instead of the Dockerfile CMD
+    # command: bash -lc "ros2 launch fastbot_bringup real_robot.launch.py"
 
-  fastbot-ros2-slam-real:
+  fastbot-ros2-slam:
     build:
       context: .
-      dockerfile: Dockerfile.slam
+      dockerfile: Dockerfile.fastbot-ros2-slam-real
     container_name: fastbot-ros2-slam-real
-    network_mode: host
     depends_on:
       - fastbot-ros2-real
+    network_mode: host
     restart: unless-stopped
     environment:
-      - DISPLAY=${DISPLAY}
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - ROS_DOMAIN_ID=22
+      - AMENT_PREFIX_PATH=/opt/ros/humble:/colcon/install
+      - ROS_LOG_DIR=/root/.ros/log
+      # If you want to visualize locally with RViz on the robot’s HDMI:
+      # - DISPLAY
+      # - QT_X11_NO_MITSHM=1
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../../../:/ws:ro
+      - colcon_install:/colcon
+      - /etc/localtime:/etc/localtime:ro
+    # Example: override SLAM to a real-robot launch with remaps
+    # command: bash -lc "ros2 launch fastbot_slam cartographer.launch.py"
+
+volumes:
+  colcon_install:

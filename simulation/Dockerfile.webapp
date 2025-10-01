@@ -1,7 +1,0 @@
-FROM python:3.10-slim
-
-WORKDIR /webapp
-COPY webapp/ /webapp/
-EXPOSE 7000
-
-CMD ["python", "-m", "http.server", "7000"]
