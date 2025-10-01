@@ -1,40 +1,41 @@
-version: "3.3"
+version: "3.8"
+
+volumes:
+  colcon_install:
+
 services:
   fastbot-ros2-real:
     build:
-      context: .
+      context: ./real
       dockerfile: Dockerfile.fastbot-ros2-real
     container_name: fastbot-ros2-real
-    # Real sensors are on USB/I2C/SPI; host network is simplest for ROS 2 discovery
     network_mode: host
     restart: unless-stopped
     environment:
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - ROS_DOMAIN_ID=22          # pick a domain for your robot
-      - CYCLONEDDS_URI=           # use default
+      - ROS_DOMAIN_ID=22
       - AMENT_PREFIX_PATH=/opt/ros/humble:/colcon/install
       - ROS_LOG_DIR=/root/.ros/log
-    # Mount your workspace *read-only* (code) and a build cache volume for /colcon
-    volumes:
-      - ../../../:/ws:ro
-      - colcon_install:/colcon
-      - /etc/localtime:/etc/localtime:ro
-    # Devices – adjust to your robot (common ones shown)
     privileged: true
     devices:
-      - /dev/ttyACM0:/dev/ttyUSB0  # Arduino/microcontroller (motors)
-      - /dev/ttyUSB0:/dev/lslidar   # LiDAR (typical)
-      - /dev/video0:/dev/video0     # Camera (v4l2)
-      #- /dev/bus/usb:/dev/bus/usb   # USB buses (safe when privileged)
+      - /dev/ttyUSB0:/dev/ttyUSB0   # adjust to your robot
+      - /dev/ttyACM0:/dev/ttyACM0   # optional second serial
+      - /dev/video0:/dev/video0     # camera
+      - /dev/bus/usb:/dev/bus/usb
     group_add:
-      - "44"     # video
-      - "20"     # dialout (serial)
-    # Optionally pin a specific command here instead of the Dockerfile CMD
-    # command: bash -lc "ros2 launch fastbot_bringup real_robot.launch.py"
+      - "20"    # dialout
+      - "44"    # video
+    volumes:
+      - ./real/entrypoint.bash:/entrypoint.bash:ro
+      - ../:/ws:ro                   # mounts ~/ros2_ws into container
+      - colcon_install:/colcon       # compiled install here (persistent)
+      - /etc/localtime:/etc/localtime:ro
+    # (optional) override default CMD to pass serial port, etc.
+    # command: bash -lc "ros2 launch fastbot_bringup bringup.launch.xml serial_port:=/dev/ttyUSB0 use_sim_time:=false"
 
-  fastbot-ros2-slam:
+  fastbot-ros2-slam-real:
     build:
-      context: .
+      context: ./real
       dockerfile: Dockerfile.fastbot-ros2-slam-real
     container_name: fastbot-ros2-slam-real
     depends_on:
@@ -46,15 +47,9 @@ services:
       - ROS_DOMAIN_ID=22
       - AMENT_PREFIX_PATH=/opt/ros/humble:/colcon/install
       - ROS_LOG_DIR=/root/.ros/log
-      # If you want to visualize locally with RViz on the robot’s HDMI:
-      # - DISPLAY
-      # - QT_X11_NO_MITSHM=1
     volumes:
-      - ../../../:/ws:ro
+      - ./real/entrypoint.bash:/entrypoint.bash:ro
+      - ../:/ws:ro
       - colcon_install:/colcon
       - /etc/localtime:/etc/localtime:ro
-    # Example: override SLAM to a real-robot launch with remaps
     # command: bash -lc "ros2 launch fastbot_slam cartographer.launch.py"
-
-volumes:
-  colcon_install:

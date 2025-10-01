@@ -1,0 +1,17 @@
+[Unit]
+Description=FastBot Real Robot Docker Stack (build & up)
+Wants=docker.service network-online.target
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/%i/ros2_ws/src/fastbot_ros2_docker
+# Pre-build ensures images exist after code updates
+ExecStartPre=/usr/bin/docker compose build
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+RemainAfterExit=yes
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
