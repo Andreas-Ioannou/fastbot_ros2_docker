@@ -1,4 +1,4 @@
-<Simulation Task-1>
+# Simulation Task-1:
 #From the checkpoint-22 enviroment
 
 1. Navigate to the simulation folder:
@@ -33,13 +33,13 @@ git clone https://github.com/Andreas-Ioannou/fastbot_slam.git
 cd ~/ros2_ws/src/fastbot_ros2_docker
 docker-compose build
 
-5. Start containers
+5. Start containers:
 docker-compose up -d
 
-# Check:
+#Check:
 docker ps
 ros2 topic list
 
-# To start the docker containers automatically when the robot is powered on
+#To start the docker containers automatically when the robot is powered on
 cd ~/ros2_ws/src/fastbot_ros2_docker/autostart
 sudo ./install.sh <robot-username>
