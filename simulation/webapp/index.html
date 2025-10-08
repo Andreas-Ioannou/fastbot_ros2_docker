@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>FastBot WebApp (Map + Joystick)</title>
+
+    <!-- Bootstrap & Font Awesome (optional styling/icons) -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+
+    <!-- EventEmitter2 -->
+    <script src="https://cdn.jsdelivr.net/npm/eventemitter2/lib/eventemitter2.min.js"></script>
+
+    <!-- ROS libs -->
+    <script src="./libs/roslib.min.js"></script>
+
+    <!-- Map dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/easeljs/lib/easeljs.min.js"></script>
+    <!-- IMPORTANT: your local, modified ros2d.js -->
+    <script src="ros2d.js"></script>
+
+    <!-- Vue -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+
+    <style>
+        #map {
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        #map canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        body {
+            background: #f8f9fa;
+        }
+
+        .container {
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 2px 24px #0001;
+            padding: 28px 18px 20px;
+            margin: 40px auto;
+        }
+
+        h2,
+        h5 {
+            color: #1e88e5;
+            font-weight: 700;
+        }
+
+        .card {
+            box-shadow: 0 2px 8px #0001;
+            border-radius: 15px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 13px;
+            height: 13px;
+            border-radius: 7px;
+            margin-right: 8px;
+            vertical-align: middle;
+            background: #e74c3c;
+        }
+
+        .text-success .status-dot {
+            background: #2ecc40;
+        }
+
+        .joystick-zone {
+            position: relative;
+            display: inline-block;
+            width: 200px;
+            height: 200px;
+            border: 2px solid #1e88e5;
+            border-radius: 50%;
+            background: #e3f2fd;
+            user-select: none;
+            touch-action: none;
+            margin-bottom: 10px;
+        }
+
+        .joystick-handle {
+            position: absolute;
+            border-radius: 50%;
+            background-color: #1565c0bb;
+            width: 72px;
+            height: 72px;
+            left: 64px;
+            top: 64px;
+            pointer-events: none;
+            transition: background .15s;
+            border: 2px solid #90caf9;
+        }
+
+        .ros-url {
+            font-size: .98rem;
+            margin-bottom: 12px;
+        }
+
+        /* map canvas host; ros2d injects <canvas> inside */
+        #map {
+            width: 100%;
+            min-height: 380px;
+        }
+
+        @media (max-width: 480px) {
+            .row {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="container">
+        <h2 class="text-center mb-4">FastBot Web Interface</h2>
+        <div class="row">
+            <!-- LEFT: Map -->
+            <div class="col-md-7 mb-4">
+                <div class="card mb-3 p-3">
+                    <h5>Map (/map)</h5>
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Status, Joystick, Connection -->
+            <div class="col-md-5 mb-4">
+                <div class="card p-3 mb-3">
+                    <h5>Status</h5>
+                    <p>
+                        <span :class="connected ? 'text-success' : 'text-danger'">
+                            <span class="status-dot"></span>
+                            {{ connected ? "Connected" : "Disconnected" }}
+                        </span>
+                    </p>
+                    <p>Speed: <b>{{ speed.toFixed(2) }}</b> m/s</p>
+                    <p>Position: x = <b>{{ position.x.toFixed(2) }}</b>, y = <b>{{ position.y.toFixed(2) }}</b></p>
+                    <p>Orientation (θ): <b>{{ position.theta.toFixed(2) }}</b></p>
+                </div>
+
+                <div class="card p-3 mb-3 text-center">
+                    <h5>Manual Drive (Joystick)</h5>
+                    <div class="joystick-zone mx-auto" id="joystick-zone" @mousedown="startJoystick"
+                        @mousemove="moveJoystick" @mouseup="endJoystick" @mouseleave="endJoystick"
+                        @touchstart.prevent="startJoystickTouch" @touchmove.prevent="moveJoystickTouch"
+                        @touchend.prevent="endJoystick">
+                        <div class="joystick-handle" :style="joystickHandleStyle"></div>
+                    </div>
+                    <div class="small text-muted">
+                        Move the joystick to drive. Release to stop.<br>
+                        <span class="text-info">Linear:</span> {{ joystick.linear.toFixed(2) }}
+                        &nbsp; <span class="text-info">Angular:</span> {{ joystick.angular.toFixed(2) }}
+                    </div>
+                </div>
+
+                <div class="card p-3">
+                    <h5>ROS Connection</h5>
+                    <input v-model="rosbridge_address" placeholder="ws://localhost:9090"
+                        class="form-control mb-2 ros-url" />
+                    <button class="btn" :class="connected ? 'btn-danger' : 'btn-success'" @click="toggleConnection">
+                        <i :class="connected ? 'fas fa-times' : 'fas fa-plug'"></i>
+                        {{ connected ? 'Disconnect' : 'Connect' }}
+                    </button>
+                    <div class="small mt-2 text-muted">
+                        Use <code>ws://localhost:9090</code> on this machine, or <code>ws://&lt;HOST_IP&gt;:9090</code>
+                        from another device.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                ros: null,
+                connected: false,
+                rosbridge_address: "ws://localhost:9090",
+
+                // Map
+                mapViewer: null,
+                mapGridClient: null,
+                mapWidth: 420,
+                mapHeight: 480,
+
+                // Telemetry
+                speed: 0,
+                position: { x: 0, y: 0, theta: 0 },
+                lastPose: { x: 0, y: 0, t: 0 },
+
+                // Topics
+                cmdVelTopic: null,
+                odomTopic: null,
+
+                // Joystick
+                joystick: {
+                    active: false,
+                    position: { x: 100, y: 100 },
+                    linear: 0,
+                    angular: 0,
+                    timer: null
+                }
+            },
+            computed: {
+                joystickHandleStyle() {
+                    const x = this.joystick.position.x - 36;
+                    const y = this.joystick.position.y - 36;
+                    return { left: x + "px", top: y + "px" };
+                }
+            },
+            methods: {
+                toggleConnection() { this.connected ? this.disconnect() : this.connect(); },
+
+                connect() {
+                    if (this.ros) this.ros.close();
+                    this.ros = new ROSLIB.Ros({ url: this.rosbridge_address, groovyCompatibility: false });
+
+                    this.ros.on('connection', () => {
+                        this.connected = true;
+
+                        // Map viewer
+                        this.setMapViewer();
+
+                        // Odometry subscription (for status speed/pose)
+                        this.odomTopic = new ROSLIB.Topic({
+                            ros: this.ros,
+                            name: "/fastbot/odom",
+                            messageType: "nav_msgs/Odometry"
+                        });
+                        this.odomTopic.subscribe((msg) => {
+                            const x = msg.pose.pose.position.x;
+                            const y = msg.pose.pose.position.y;
+                            const q = msg.pose.pose.orientation;
+                            const now = Date.now() / 1000.0;
+
+                            if (this.lastPose.t > 0) {
+                                const dx = x - this.lastPose.x, dy = y - this.lastPose.y, dt = now - this.lastPose.t;
+                                if (dt > 0.01) this.speed = Math.sqrt(dx * dx + dy * dy) / dt;
+                            }
+                            this.lastPose = { x, y, t: now };
+                            this.position.x = x; this.position.y = y;
+                            const siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+                            const cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+                            this.position.theta = Math.atan2(siny_cosp, cosy_cosp);
+                        });
+
+                        // CmdVel publisher
+                        this.cmdVelTopic = new ROSLIB.Topic({
+                            ros: this.ros,
+                            name: "/fastbot/cmd_vel",
+                            messageType: "geometry_msgs/Twist"
+                        });
+                    });
+
+                    this.ros.on('close', () => {
+                        this.connected = false;
+
+                        // Clear map canvas
+                        const mapEl = document.getElementById('map');
+                        if (mapEl) mapEl.innerHTML = '';
+                        this.mapViewer = null;
+                        this.mapGridClient = null;
+
+                        // Stop joystick loop
+                        if (this.joystick.timer) {
+                            clearInterval(this.joystick.timer);
+                            this.joystick.timer = null;
+                        }
+                    });
+                },
+
+                disconnect() {
+                    if (this.ros) this.ros.close();
+                },
+
+                /* === MAP (ros2d.js + EaselJS) === */
+                setMapViewer() {
+                    // 1) Create/clear a canvas inside #map
+                    const host = document.getElementById('map');
+                    host.innerHTML = '';
+
+                    // Compute a target size: fit container but cap at 560x420 (4:3)
+                    const maxW = 480;
+                    const targetW = Math.min(host.clientWidth || maxW, maxW);
+                    const targetH = Math.round(targetW * 0.75); // 4:3
+
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    canvas.style.width = '100%';
+                    canvas.style.height = 'auto';
+                    canvas.style.background = '#222';
+                    host.appendChild(canvas);
+
+                    // 2) Subscribe to /map with ROS 2 QoS that matches map_server/cartographer
+                    const mapTopic = new ROSLIB.Topic({
+                        ros: this.ros,
+                        name: '/map',
+                        messageType: 'nav_msgs/OccupancyGrid',
+                        qos: {
+                            depth: 5,
+                            history: 'keep_last',
+                            reliability: 'reliable',
+                            durability: 'transient_local'
+                        }
+                    });
+
+                    // 3) Render each map message into the canvas
+                    mapTopic.subscribe(msg => {
+                        const w = msg.info.width;
+                        const h = msg.info.height;
+                        const res = msg.info.resolution;                 // meters / cell
+                        const origin = msg.info.origin.position;         // map origin (meters)
+
+                        if (!w || !h) return;
+
+                        // Build an ImageData buffer (1 pixel per cell)
+                        const img = ctx.createImageData(w, h);
+                        const data = img.data;
+
+                        // palette: -1 unknown=gray, 0 free=white, 100 occ=black
+                        // some maps use 0..100; anything >=65 => occupied, <=25 => free
+                        for (let i = 0; i < w * h; i++) {
+                            const v = msg.data[i];
+                            let c;
+                            if (v < 0) c = 127;             // unknown
+                            else if (v >= 65) c = 0;              // occupied
+                            else if (v <= 25) c = 255;            // free
+                            else c = 127;            // unknown-ish
+
+                            const j = i * 4;
+                            data[j + 0] = c;
+                            data[j + 1] = c;
+                            data[j + 2] = c;
+                            data[j + 3] = 255;                    // alpha
+                        }
+
+                        // Clear and scale the image to fit the canvas,
+                        // keeping aspect ratio and drawing y-axis up (flip vertically)
+                        // First, size the logical canvas to fit the map aspect:
+                        // Fit to target box, respecting aspect
+                        const aspect = w / h;
+                        let boxW = targetW, boxH = targetH;
+                        if (boxW / boxH > aspect) {
+                            canvas.height = boxH;
+                            canvas.width = Math.round(boxH * aspect);
+                        } else {
+                            canvas.width = boxW;
+                            canvas.height = Math.round(boxW / aspect);
+                        }
+                        // Draw (flip vertically so +y up like RViz)
+                        const off = document.createElement('canvas');
+                        off.width = w; off.height = h;
+                        off.getContext('2d').putImageData(img, 0, 0);
+
+                        ctx.save();
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.translate(0, canvas.height);
+                        ctx.scale(canvas.width / w, -canvas.height / h);
+                        ctx.drawImage(off, 0, 0);
+                        ctx.restore();
+
+                        // If you want the map origin in meters, you have it here:
+                        // origin.x, origin.y, res  (for overlaying robot pose later)
+                    });
+
+                    // keep a ref to unsubscribe later if needed
+                    this._mapTopic = mapTopic;
+                },
+
+                /* === Joystick === */
+                startJoystick(e) {
+                    this.joystick.active = true;
+                    if (this.joystick.timer) clearInterval(this.joystick.timer);
+                    const rect = document.getElementById("joystick-zone").getBoundingClientRect();
+                    const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                    this.joystick.position = { x, y };
+                    this.updateJoystick();
+                    this.joystick.timer = setInterval(this.sendJoystickCmd, 50);
+                },
+                moveJoystick(e) {
+                    if (!this.joystick.active) return;
+                    const rect = document.getElementById("joystick-zone").getBoundingClientRect();
+                    let x = e.clientX - rect.left, y = e.clientY - rect.top;
+                    const dx = x - 100, dy = y - 100, dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 80) { x = 100 + dx * 80 / dist; y = 100 + dy * 80 / dist; }
+                    this.joystick.position = { x, y };
+                    this.updateJoystick();
+                },
+                endJoystick() {
+                    if (!this.joystick.active) return;
+                    this.joystick.active = false;
+                    this.joystick.position = { x: 100, y: 100 };
+                    this.joystick.linear = 0; this.joystick.angular = 0;
+                    if (this.joystick.timer) { clearInterval(this.joystick.timer); this.joystick.timer = null; }
+                    this.sendJoystickCmd();
+                },
+                startJoystickTouch(e) {
+                    if (!e.touches || !e.touches.length) return;
+                    if (this.joystick.timer) clearInterval(this.joystick.timer);
+                    const rect = document.getElementById("joystick-zone").getBoundingClientRect();
+                    const t = e.touches[0], x = t.clientX - rect.left, y = t.clientY - rect.top;
+                    this.joystick.active = true;
+                    this.joystick.position = { x, y };
+                    this.updateJoystick();
+                    this.joystick.timer = setInterval(this.sendJoystickCmd, 50);
+                },
+                moveJoystickTouch(e) {
+                    if (!this.joystick.active || !e.touches || !e.touches.length) return;
+                    const rect = document.getElementById("joystick-zone").getBoundingClientRect();
+                    const t = e.touches[0]; let x = t.clientX - rect.left, y = t.clientY - rect.top;
+                    const dx = x - 100, dy = y - 100, dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 80) { x = 100 + dx * 80 / dist; y = 100 + dy * 80 / dist; }
+                    this.joystick.position = { x, y };
+                    this.updateJoystick();
+                },
+                updateJoystick() {
+                    const dx = this.joystick.position.x - 100;
+                    const dy = this.joystick.position.y - 100;
+                    this.joystick.linear = -dy / 80;
+                    this.joystick.angular = -dx / 80;
+                },
+                sendJoystickCmd() {
+                    if (!this.connected || !this.cmdVelTopic) return;
+                    const maxLin = 0.4, maxAng = 1.2;
+                    const twist = new ROSLIB.Message({
+                        linear: { x: this.joystick.linear * maxLin, y: 0, z: 0 },
+                        angular: { x: 0, y: 0, z: this.joystick.angular * maxAng }
+                    });
+                    this.cmdVelTopic.publish(twist);
+                }
+            },
+            mounted() {
+                window.addEventListener("mouseup", this.endJoystick);
+                window.addEventListener("touchend", this.endJoystick);
+            }
+        });
+    </script>
+</body>
+
+</html>
