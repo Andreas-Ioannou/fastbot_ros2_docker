@@ -27,7 +27,7 @@ git clone https://github.com/Andreas-Ioannou/fastbot_cp20.git
 git clone https://github.com/Andreas-Ioannou/fastbot_ros2_docker.git
 
 3. Clone the fastbot_slam repo:
-git clone https://github.com/Andreas-Ioannou/fastbot_slam.git
+git clone https://github.com/Andreas-Ioannou/fastbot_all.git
 
 4. Navigate into the fastbot_ros2_docker folder and build images locally:
 cd ~/ros2_ws/src/fastbot_ros2_docker
