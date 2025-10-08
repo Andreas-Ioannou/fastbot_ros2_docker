@@ -1,21 +1,38 @@
+# Dockerfile.fastbot-ros2-slam-real
 FROM ros:humble-ros-base
 
+# Base tools (no build of your packages here)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential python3-colcon-common-extensions python3-vcstool \
-    ros-humble-cartographer-ros \
-    ros-humble-nav2-map-server \
-    ros-humble-rviz2 \
-    ros-humble-rmw-cyclonedds-cpp \
+    apt-utils python3-pip python3-rosdep python3-colcon-common-extensions \
+    build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV AMENT_PREFIX_PATH=/opt/ros/humble
+# SLAM / Nav2 runtime deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-cartographer \
+    ros-humble-cartographer-ros \
+    ros-humble-cartographer-ros-msgs \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup \
+    ros-humble-nav2-rviz-plugins \
+    ros-humble-turtlebot3-msgs \
+    ros-humble-tf-transformations \
+    ros-humble-rviz2 \
+    ros-humble-robot-state-publisher \
+    ros-humble-tf2-ros \
+    ros-humble-tf2-tools \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /ws
-COPY entrypoint.bash /entrypoint.bash
-ENTRYPOINT ["/entrypoint.bash"]
+# Workspace lives on a bind mount
+WORKDIR /ros2_ws
 
-# --------- DEFAULT LAUNCH (ADJUST TO YOUR SLAM LAUNCH) ----------
-# Use your real-robot cartographer launch (with real topic remaps)
-# If your existing cartographer.launch.py works for real robot, keep it.
-CMD ["bash","-lc","ros2 launch fastbot_slam cartographer.launch.py"]
+SHELL ["/bin/bash", "-c"]
+RUN rosdep update || true
+
+# Source ROS + mounted workspace for interactive shells
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc && \
+    echo "source /ros2_ws/install/setup.bash" >> /root/.bashrc
+
+# Start your SLAM launch (adjust if your package/launch differs)
+# If your compose overrides the command, that's fine too.
+CMD ["ros2","launch","fastbot_slam_real","cartographer.launch.py"]

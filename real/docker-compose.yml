@@ -1,55 +1,22 @@
-version: "3.8"
-
-volumes:
-  colcon_install:
-
 services:
-  fastbot-ros2-real:
-    build:
-      context: ./real
-      dockerfile: Dockerfile.fastbot-ros2-real
-    container_name: fastbot-ros2-real
+  fastbot:
+    image: andreasros/fastbot-ros2-real:real
     network_mode: host
-    restart: unless-stopped
-    environment:
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - ROS_DOMAIN_ID=22
-      - AMENT_PREFIX_PATH=/opt/ros/humble:/colcon/install
-      - ROS_LOG_DIR=/root/.ros/log
     privileged: true
     devices:
-      - /dev/ttyUSB0:/dev/ttyUSB0   # adjust to your robot
-      - /dev/ttyACM0:/dev/ttyACM0   # optional second serial
-      - /dev/video0:/dev/video0     # camera
-      - /dev/bus/usb:/dev/bus/usb
-    group_add:
-      - "20"    # dialout
-      - "44"    # video
+      - /dev/ttyACM0:/dev/lslidar
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/video0:/dev/video0
     volumes:
-      - ./real/entrypoint.bash:/entrypoint.bash:ro
-      - ../:/ws:ro                   # mounts ~/ros2_ws into container
-      - colcon_install:/colcon       # compiled install here (persistent)
-      - /etc/localtime:/etc/localtime:ro
-    # (optional) override default CMD to pass serial port, etc.
-    # command: bash -lc "ros2 launch fastbot_bringup bringup.launch.xml serial_port:=/dev/ttyUSB0 use_sim_time:=false"
+      - ./ros2_ws:/ros2_ws
+    command: bash -lc "source /ros2_ws/install/setup.bash &&
+                       ros2 launch fastbot_bringup bringup.launch.xml"
 
-  fastbot-ros2-slam-real:
-    build:
-      context: ./real
-      dockerfile: Dockerfile.fastbot-ros2-slam-real
-    container_name: fastbot-ros2-slam-real
-    depends_on:
-      - fastbot-ros2-real
+  fastbot_slam:
+    image: andreasros/fastbot-ros2-slam-real:real
+    depends_on: [fastbot]
     network_mode: host
-    restart: unless-stopped
-    environment:
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - ROS_DOMAIN_ID=22
-      - AMENT_PREFIX_PATH=/opt/ros/humble:/colcon/install
-      - ROS_LOG_DIR=/root/.ros/log
     volumes:
-      - ./real/entrypoint.bash:/entrypoint.bash:ro
-      - ../:/ws:ro
-      - colcon_install:/colcon
-      - /etc/localtime:/etc/localtime:ro
-    # command: bash -lc "ros2 launch fastbot_slam cartographer.launch.py"
+      - ./ros2_ws:/ros2_ws
+    command: bash -lc "source /ros2_ws/install/setup.bash &&
+                       ros2 launch fastbot_slam_real cartographer.launch.py"

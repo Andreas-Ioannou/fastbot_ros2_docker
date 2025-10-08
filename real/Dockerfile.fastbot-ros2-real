@@ -1,34 +1,24 @@
 FROM ros:humble-ros-base
 
-# OS deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential python3-colcon-common-extensions python3-vcstool \
-    udev \
-    ros-humble-rmw-cyclonedds-cpp \
-    ros-humble-image-transport ros-humble-compressed-image-transport \
-    ros-humble-diagnostic-updater \
+    apt-utils python3-pip python3-rosdep python3-colcon-common-extensions \
+    build-essential git \
+    libserial-dev libboost-all-dev libpcl-dev libpcap-dev \
+    ros-humble-ros2-control ros-humble-ros2-controllers \
+    ros-humble-joint-state-publisher ros-humble-robot-state-publisher \
+    ros-humble-robot-localization \
+    ros-humble-xacro ros-humble-tf2-ros ros-humble-tf2-tools \
+    ros-humble-pcl-conversions \
+    ros-humble-v4l2-camera ros-humble-image-transport-plugins v4l-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# If your lidar/camera need extra vendor libs, add them here.
-# Example (uncomment if you need it):
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-#     v4l-utils \
-#     && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir pyserial
 
-ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-ENV AMENT_PREFIX_PATH=/opt/ros/humble
+WORKDIR /ros2_ws
+SHELL ["/bin/bash", "-c"]
+RUN rosdep update || true
 
-# Workspace mount point
-WORKDIR /ws
-# Colcon install lives outside the bind mount (faster, persisted by volume)
-ENV COLCON_DEFAULTS_FILE=
-ENV ROS_LOG_DIR=/root/.ros/log
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc && \
+    echo "source /ros2_ws/install/setup.bash" >> /root/.bashrc
 
-# Entrypoint
-COPY entrypoint.bash /entrypoint.bash
-ENTRYPOINT ["/entrypoint.bash"]
-
-# --------- DEFAULT LAUNCH (ADJUST TO YOUR BRINGUP) ----------
-# Example: start drivers (camera, lidar, motors)
-# Replace with the exact launch in your repo, e.g. fastbot_bringup bringup.launch.xml
-CMD ["bash","-lc","ros2 launch fastbot_bringup bringup.launch.xml"]
+CMD ["ros2","launch","fastbot_bringup","bringup.launch.xml"]
