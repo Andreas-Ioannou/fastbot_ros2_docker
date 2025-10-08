@@ -1,6 +1,8 @@
 services:
   fastbot:
     image: andreasros/fastbot-ros2-real:real
+    container_name: fastbot
+    restart: always
     network_mode: host
     privileged: true
     devices:
@@ -14,6 +16,8 @@ services:
 
   fastbot_slam:
     image: andreasros/fastbot-ros2-slam-real:real
+    container_name: fastbot_slam
+    restart: always
     depends_on: [fastbot]
     network_mode: host
     volumes:

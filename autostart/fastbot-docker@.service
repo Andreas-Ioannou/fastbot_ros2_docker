@@ -1,17 +1,20 @@
+sudo tee /etc/systemd/system/fastbot.service >/dev/null <<'EOF'
 [Unit]
-Description=FastBot Real Robot Docker Stack (build & up)
-Wants=docker.service network-online.target
-After=docker.service network-online.target
+Description=Fastbot Compose Stack
+After=docker.service
+Requires=docker.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/%i/ros2_ws/src/fastbot_ros2_docker
-# Pre-build ensures images exist after code updates
-ExecStartPre=/usr/bin/docker compose build
+WorkingDirectory=/path/to/your/compose/folder
 ExecStart=/usr/bin/docker compose up -d
 ExecStop=/usr/bin/docker compose down
 RemainAfterExit=yes
-TimeoutStartSec=0
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable fastbot.service
+sudo systemctl start fastbot.service
