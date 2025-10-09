@@ -4,7 +4,6 @@ FROM ros:humble-ros-base
 # Base tools (no build of your packages here)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-utils python3-pip python3-rosdep python3-colcon-common-extensions \
-    build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
 # SLAM / Nav2 runtime deps
@@ -23,16 +22,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-tf2-tools \
     && rm -rf /var/lib/apt/lists/*
 
-# Workspace lives on a bind mount
-WORKDIR /ros2_ws
 
 SHELL ["/bin/bash", "-c"]
-RUN rosdep update || true
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-rmw-cyclonedds-cpp && \
+    rm -rf /var/lib/apt/lists/*
 
 # Source ROS + mounted workspace for interactive shells
-RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc && \
-    echo "source /ros2_ws/install/setup.bash" >> /root/.bashrc
+RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 
-# Start your SLAM launch (adjust if your package/launch differs)
-# If your compose overrides the command, that's fine too.
-CMD ["ros2","launch","fastbot_slam_real","cartographer.launch.py"]
+CMD \
+  source /opt/ros/humble/setup.sh && \
+  echo "Starting Cartographer with lidar-only example (revo_lds.lua)..." && \
+  trap 'kill 0' EXIT INT TERM && \
+  ros2 run cartographer_ros cartographer_node \
+    -configuration_directory /opt/ros/humble/share/cartographer_ros/configuration_files \
+    -configuration_basename revo_lds.lua \
+    -use_sim_time false \
+    --ros-args -r scan:=/fastbot/scan -r odom:=/fastbot/odom & \
+  ros2 run cartographer_ros cartographer_occupancy_grid_node \
+    --ros-args -p resolution:=0.05 -p publish_period_sec:=1.0 & \
+  wait

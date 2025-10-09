@@ -18,6 +18,10 @@ WORKDIR /ros2_ws
 SHELL ["/bin/bash", "-c"]
 RUN rosdep update || true
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-rmw-cyclonedds-cpp && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc && \
     echo "source /ros2_ws/install/setup.bash" >> /root/.bashrc
 
