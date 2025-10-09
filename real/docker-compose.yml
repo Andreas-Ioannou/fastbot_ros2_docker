@@ -2,9 +2,11 @@ services:
   fastbot:
     image: andreasros/fastbot-ros2-real:real
     environment:
-        - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+        #- RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+        - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
         - ROS_DOMAIN_ID=0
-        - FASTDDS_DEFAULT_PROFILES_FILE=/fastdds_local.xml
+        - ROS_LOCALHOST_ONLY=0
+        #- FASTDDS_DEFAULT_PROFILES_FILE=/fastdds_local.xml
     platform: linux/arm64
     container_name: fastbot
     restart: always
@@ -16,19 +18,24 @@ services:
       - /dev/video0:/dev/video0
     volumes:
       - /home/fastbot/ros2_ws:/ros2_ws
-      - /home/fastbot/ros2_ws/src/fastbot_ros2_docker/real/fastdds_local.xml:/fastdds_local.xml:ro
+      #- /home/fastbot/ros2_ws/src/fastbot_ros2_docker/real/fastdds_local.xml:/fastdds_local.xml:ro
     command: bash -lc "source /opt/ros/humble/setup.bash && source /ros2_ws/install/setup.bash && ros2 launch fastbot_bringup bringup.launch.xml"
 
   fastbot_slam:
     image: andreasros/fastbot-ros2-slam-real:real
     environment:
-        - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+        #- RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+        - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
         - ROS_DOMAIN_ID=0
+        - ROS_LOCALHOST_ONLY=0
+        #- ROS_LOCALHOST_ONLY=0
+        #- FASTDDS_DEFAULT_PROFILES_FILE=/fastdds_local.xml
     platform: linux/arm64
     container_name: fastbot_slam
     restart: always
     depends_on: [fastbot]
     network_mode: host
-    #volumes:
-    #  - /home/fastbot/ros2_ws:/ros2_ws
+    volumes:
+        #- /home/fastbot/ros2_ws/src/fastbot_ros2_docker/real/fastdds_local.xml:/fastdds_local.xml:ro
+        - /home/fastbot/ros2_ws:/ros2_ws
     # Use bash as entrypoint so "source" works

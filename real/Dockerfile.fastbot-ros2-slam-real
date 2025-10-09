@@ -32,15 +32,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Source ROS + mounted workspace for interactive shells
 RUN echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc
 
+# Make our config directory and copy the base revo_lds.lua into it
+RUN mkdir -p /etc/fastbot && \
+    cp /opt/ros/humble/share/cartographer_ros/configuration_files/revo_lds.lua \
+       /etc/fastbot/revo_lds.lua
+
+# Our tiny overlay (already in your tree)
+COPY revo_lds_nosubdiv.lua /etc/fastbot/revo_lds_nosubdiv.lua
+
+COPY restamp_scan.py /etc/fastbot/restamp_scan.py
+RUN chmod +x /etc/fastbot/restamp_scan.py
+
+
+# Start Cartographer using our overlay (still remapping scan/odom)
 CMD \
   source /opt/ros/humble/setup.sh && \
-  echo "Starting Cartographer with lidar-only example (revo_lds.lua)..." && \
+  echo "Starting restamper + Cartographer (revo_lds + no subdivisions)..." && \
   trap 'kill 0' EXIT INT TERM && \
+  python3 /etc/fastbot/restamp_scan.py & \
   ros2 run cartographer_ros cartographer_node \
-    -configuration_directory /opt/ros/humble/share/cartographer_ros/configuration_files \
-    -configuration_basename revo_lds.lua \
+    -configuration_directory /etc/fastbot \
+    -configuration_basename revo_lds_nosubdiv.lua \
     -use_sim_time false \
-    --ros-args -r scan:=/fastbot/scan -r odom:=/fastbot/odom & \
+    --ros-args -r scan:=/fastbot/scan_restamped -r odom:=/fastbot/odom & \
   ros2 run cartographer_ros cartographer_occupancy_grid_node \
     --ros-args -p resolution:=0.05 -p publish_period_sec:=1.0 & \
   wait
